@@ -3,18 +3,12 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local default_hub_name = "encode"
+local flying = false
 
 local keybinds = {
     toggle_ui = Enum.KeyCode.RightShift,
 
     fly = Enum.KeyCode.Y,
-}
-
-local data = {
-    fly = {
-    },
-    click_tp = {
-    },
 }
 
 local function new(class, parent, props)
@@ -24,6 +18,176 @@ local function new(class, parent, props)
     end
     return i
 end
+
+local data = {
+    {
+        title = "click teleport",
+        settings = {
+            startergear = "boolean",
+        },
+        func = function(settings)
+            mouse = player:GetMouse()
+
+            local function get_tool()
+                local tool = new("Tool", Players.LocalPlayer.Backpack, {
+                    RequiresHandle = false,
+                    Name = "click tp",
+                })
+                tool.Activated:Connect(function()
+                    local pos = mouse.Hit
+                    pos = CFrame.new(pos.X, pos.Y + 2.5, pos.Z)
+                    Players.LocalPlayer.Character.HumanoidRootPart.CFrame = pos
+                end)
+            end
+
+            get_tool()
+
+            if settings.starter_gear then
+                player.CharacterAdded:Connect(get_tool)
+            end
+        end,
+    },
+
+    {
+        title = "humanoid",
+        settings = {
+            walkspeed = "number",
+            jumpheight = "number",
+        },
+        func = function(settings)
+            local humanoid = Players.LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+
+            if settings.walkspeed then
+                humanoid.WalkSpeed = settings.walkspeed
+            end
+
+            if settings.jumpheight then
+                humanoid.UseJumpPower = false
+                humanoid.JumpHeight = settings.jumpheight
+            end
+        end,
+    },
+    
+    {
+        title = "tp to player",
+        settings = {
+            playername = "string",
+        },
+
+        func = function(settings)
+            Players.LocalPlayer.Character.PrimaryPart.CFrame = Players[settings.playername].Character.PrimaryPart.CFrame
+        end,
+    },
+
+    {
+        title = "bodyvelocity fly",
+        settings = {
+            speed = "number",
+            keybind = "string",
+        },
+        
+        func = function(settings)
+            if flying then
+                return
+            end
+            flying = true
+            
+            local speed = settings.speed
+            local s, keybind = pcall(function() return Enum.KeyCode[settings.keybind] end)
+            keybind = s and keybind or Enum.KeyCode.E
+
+            local conv = {
+                A = { "RightVector", -1, "A" },
+                D = { "RightVector", 1, "D" },
+                S = { "LookVector", -1, "S" },
+                W = { "LookVector", 1, "W" },
+            }
+
+            local held_keys = {}
+            local key_inverse = {
+                W = "S",
+                A = "D",
+                S = "W",
+                D = "A",
+            }
+
+            local function add_key(key)
+                local inv_pos = table.find(held_keys, key_inverse[key])
+                if inv_pos then
+                    table.remove(held_keys, inv_pos)
+                else
+                    table.insert(held_keys, key)
+                end
+            end
+
+            local function remove_key(key)
+                if table.find(held_keys, key) then
+                    table.remove(held_keys, table.find(held_keys, key))
+                end
+            end
+
+            local body_vel = new("BodyVelocity", Players.LocalPlayer.Character.PrimaryPart, {
+                Velocity = Vector3.zero,
+                MaxForce = Vector3.one * 9e9,
+            })
+            local velocity = Vector3.zero
+
+            UserInputService.InputBegan:Connect(function(input, processed)
+                if processed then
+                    return
+                end
+
+                if input.KeyCode == keybind then
+                    flying = not flying
+
+                    if flying then
+                        body_vel = new("BodyVelocity", Players.LocalPlayer.Character.PrimaryPart, {
+                            Velocity = Vector3.zero,
+                            MaxForce = Vector3.one * 9e9,
+                        })
+                    else
+                        body_vel:Destroy()
+                        body_vel = nil
+                    end
+                end
+
+                if body_vel and flying and conv[input.KeyCode.Name] then
+                    add_key(input.KeyCode.Name)
+                end
+            end)
+
+            UserInputService.InputEnded:Connect(function(input, processed)
+                if processed then
+                    return
+                end
+
+                remove_key(input.KeyCode.Name)
+            end)
+
+            RunService.RenderStepped:Connect(function()
+                if not flying or not body_vel then
+                    return
+                end
+
+                local dir_t = { Vector3.zero }
+                for idx, key in held_keys do
+                    fir_t[idx] = workspace.CurrentCamera.CFrame[conv[key][1]] * conv[key][2]
+                end
+
+                local v
+                if #held_keys == 0 then
+                    v = Vector3.zero
+                elseif #held_keys == 1 then
+                    v = dir_t[1]
+                else
+                    v = dir_t[1]:Lerp(dir_t[2], 0.5)
+                end
+
+                body_vel.Velocity = v * speed
+            end)
+        end,
+    },
+}
 
 local function create_button()
 end
@@ -247,7 +411,7 @@ local function init()
         end,
     })
 
-    for _,exploit in exploits do
+    for _, exploit in data do
         new_button(exploit.title, nil, exploit)
     end
 
