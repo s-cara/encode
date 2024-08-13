@@ -6,6 +6,8 @@ esp
 
 freecam
 
+fullbright
+
 basic aimbot (lock to closest player)
 
 cframe fly

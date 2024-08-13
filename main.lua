@@ -26,7 +26,7 @@ local data = {
             startergear = "boolean",
         },
         func = function(settings)
-            mouse = player:GetMouse()
+            local mouse = Players.LocalPlayer:GetMouse()
 
             local function get_tool()
                 local tool = new("Tool", Players.LocalPlayer.Backpack, {
@@ -36,7 +36,7 @@ local data = {
                 tool.Activated:Connect(function()
                     local pos = mouse.Hit
                     pos = CFrame.new(pos.X, pos.Y + 2.5, pos.Z)
-                    Players.LocalPlayer.Character.HumanoidRootPart.CFrame = pos
+                    Players.LocalPlayer.Character.PrimaryPart.CFrame = pos
                 end)
             end
 
@@ -171,7 +171,7 @@ local data = {
 
                 local dir_t = { Vector3.zero }
                 for idx, key in held_keys do
-                    fir_t[idx] = workspace.CurrentCamera.CFrame[conv[key][1]] * conv[key][2]
+                    dir_t[idx] = workspace.CurrentCamera.CFrame[conv[key][1]] * conv[key][2]
                 end
 
                 local v
@@ -188,9 +188,6 @@ local data = {
         end,
     },
 }
-
-local function create_button()
-end
 
 local function init()
     local mouse = Players.LocalPlayer:GetMouse()
@@ -212,11 +209,11 @@ local function init()
 
     local topbar = new("TextLabel", background, {
         Size = UDim2.new(1, 0, 0, 50),
-        Position = Udim2.new(),
+        Position = UDim2.new(),
         BackgroundColor3 = Color3.fromRGB(40, 40, 40),
         BorderSizePixel = 0,
         Text = default_hub_name,
-        Font = Enum.Font.Gotham,
+        Font = Enum.Font.Fondamento,
         TextSize = 30,
         RichText = true,
         TextColor3 = Color3.new(1, 1, 1),
@@ -285,8 +282,8 @@ local function init()
 
         local button = new("TextButton", main, {
             Size = UDim2.new(1, -10, 0, 25),
-            Position = Udim2.fromOffset(5, 5 + buttons * 30),
-            BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            Position = UDim2.fromOffset(5, 5 + buttons * 30),
+            BackgroundColor3 = Color3.fromRGB(50, 50, 50),
             Text = title,
             Font = Enum.Font.SourceSansSemibold,
             TextSize = 18,
@@ -302,8 +299,8 @@ local function init()
             BackgroundTransparency = 1,
         })
 
-        local execute = new("Frame", background, {
-            Size = UDim2.new(1, 0, 1, 50),
+        local execute = new("TextButton", page, {
+            Size = UDim2.new(1, -10, 0, 25),
             Position = UDim2.fromOffset(5, 5),
             BackgroundColor3 = Color3.fromRGB(50, 50, 50),
             Text = execute_text or "execute",
@@ -313,7 +310,7 @@ local function init()
             TextColor3 = Color3.new(1, 1, 1),
         })
 
-        new("UICorner", execute, { CornerRadius = UDim2.new(0, 5) })
+        new("UICorner", execute, { CornerRadius = UDim.new(0, 5) })
 
         execute.Activated:Connect(function()
             info.func(settings)
@@ -331,6 +328,8 @@ local function init()
                     TextSize = 18,
                     TextColor3 = Color3.new(1, 1, 1),
                 })
+                
+                new("UICorner", setting_tab, { CornerRadius = UDim.new(0, 5) })
 
                 local enabled = new("Frame", setting_tab, {
                     AnchorPoint = Vector2.new(1, 0.5),
@@ -355,7 +354,7 @@ local function init()
                     Size = UDim2.new(1, -10, 0, 25),
                     Position = UDim2.fromOffset(5, 5 + page_buttons * 30),
                     BackgroundColor3 = Color3.fromRGB(50, 50, 50),
-                    PlaceholderText = string.format("%s: %s", setting, setting_type)
+                    PlaceholderText = string.format("%s: %s", setting, setting_type),
                     Text = "",
                     Font = Enum.Font.SourceSansSemibold,
                     TextSize = 18,
@@ -419,4 +418,3 @@ local function init()
 end
 
 init()
-
