@@ -97,10 +97,10 @@ local data = {
             keybind = s and keybind or Enum.KeyCode.E
 
             local conv = {
-                A = { "RightVector", -1, "A" },
-                D = { "RightVector", 1, "D" },
-                S = { "LookVector", -1, "S" },
-                W = { "LookVector", 1, "W" },
+                W = Vector3.new(0, 0, 1),
+                A = Vector3.new(-1, 0, 0),
+                S = Vector3.new(0, 0, -1),
+                D = Vector3.new(1, 0, 0),
             }
 
             local held_keys = {}
@@ -169,21 +169,16 @@ local data = {
                     return
                 end
 
-                local dir_t = { Vector3.zero }
-                for idx, key in held_keys do
-                    dir_t[idx] = workspace.CurrentCamera.CFrame[conv[key][1]] * conv[key][2]
+                local local_direction = Vector3.zero
+                for k, v in conv do
+                    if UserInputService:IsKeyDown(Enum.KeyCode[k]) then
+                        local_direction += v
+                    end
                 end
 
-                local v
-                if #held_keys == 0 then
-                    v = Vector3.zero
-                elseif #held_keys == 1 then
-                    v = dir_t[1]
-                else
-                    v = dir_t[1]:Lerp(dir_t[2], 0.5)
-                end
+                local direction = workspace.CurrentCamera.CFrame:VectorToWorldSpace(local_direction)
 
-                body_vel.Velocity = v * speed
+                body_vel.Velocity = direction * speed
             end)
         end,
     },
