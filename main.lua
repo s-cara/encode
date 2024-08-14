@@ -32,7 +32,7 @@ local data = {
         settings = {
             startergear = "boolean",
         },
-        func = function(self)
+        exec = function(self)
             local mouse = Players.LocalPlayer:GetMouse()
 
             local function get_tool()
@@ -49,7 +49,7 @@ local data = {
 
             get_tool()
 
-            if self.data.starter_gear then
+            if self.data.startergear then
                 Players.LocalPlayer.CharacterAdded:Connect(get_tool)
             end
         end,
@@ -61,7 +61,7 @@ local data = {
             walkspeed = "number",
             jumpheight = "number",
         },
-        func = function(self)
+        exec = function(self)
             local humanoid = get_char():FindFirstChildWhichIsA("Humanoid")
 
             if self.data.walkspeed then
@@ -81,13 +81,13 @@ local data = {
             playername = "string",
         },
 
-        func = function(self)
+        exec = function(self)
             get_char().PrimaryPart.CFrame = Players[self.data.playername].Character.PrimaryPart.CFrame
         end,
     },
 
     {
-        title = "cframe fly",
+        title = "cframe fly / noclip",
         settings = {
             speed = "number",
             keybind = "string",
@@ -96,7 +96,7 @@ local data = {
         init = function(self)
             self.data.flying = false
             self.data.keybind = "L"
-            self.data.speed = 10
+            self.data.speed = 50
 
             UserInputService.InputBegan:Connect(function(input, processed)
                 if processed then
@@ -126,16 +126,14 @@ local data = {
                     end
                 end
 
-                if ld.Magnitude == 0 then
-                    return
-                end
-
                 local camcf = workspace.CurrentCamera.CFrame
-                local direction = (camcf.RightVector * ld.X + camcf.UpVector * ld.Y + camcf.LookVector * ld.Z).Unit
-                local delta = direction * dt * (self.data.speed or 1)
-
                 local pp = get_char().PrimaryPart
-                pp.CFrame = camcf.Rotation + pp.Position + delta
+                pp.CFrame = camcf.Rotation + pp.Position
+
+                if ld.Magnitude > 0 then
+                    local direction = (camcf.RightVector * ld.X + camcf.UpVector * ld.Y + camcf.LookVector * ld.Z).Unit
+                    pp.CFrame += direction * dt * (self.data.speed or 1)
+                end
             end)
         end,
     },
@@ -251,7 +249,7 @@ local function init()
 
         local page_buttons = 1
 
-        if info.func ~= nil then
+        if info.exec ~= nil then
             local execute = new("TextButton", page, {
                 Size = UDim2.new(1, -10, 0, 25),
                 Position = UDim2.fromOffset(5, 5),
@@ -266,7 +264,7 @@ local function init()
             new("UICorner", execute, { CornerRadius = UDim.new(0, 5) })
 
             execute.Activated:Connect(function()
-                info:func()
+                info:exec()
             end)
         else
             page_buttons -= 1
@@ -322,12 +320,13 @@ local function init()
                     Size = UDim2.new(1, -10, 0, 25),
                     Position = UDim2.fromOffset(5, 5 + page_buttons * 30),
                     BackgroundColor3 = Color3.fromRGB(50, 50, 50),
-                    PlaceholderText = string.format("%s: %s", setting, setting_type),
+                    PlaceholderText = string.format("%s (%s)", setting, setting_type),
                     Text = "",
                     Font = Enum.Font.SourceSansSemibold,
                     TextSize = 18,
                     TextColor3 = Color3.new(1, 1, 1),
                     PlaceholderColor3 = Color3.fromRGB(200, 200, 200),
+                    ClearTextOnFocus = false,
                 })
 
                 new("UICorner", setting_tab, { CornerRadius = UDim.new(0, 5) })
@@ -363,7 +362,7 @@ local function init()
             hub_title = "string",
             hide_keybind = "string",
         },
-        func = function(self)
+        exec = function(self)
             local s, kb = pcall(function()
                 return Enum.KeyCode[self.data.hide_keybind]
             end)
