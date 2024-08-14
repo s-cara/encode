@@ -3,12 +3,15 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local default_hub_name = "encode"
-local flying = false
+local toggle_ui_keybind = Enum.KeyCode.RightShift
 
-local keybinds = {
-    toggle_ui = Enum.KeyCode.RightShift,
-
-    fly = Enum.KeyCode.Y,
+local fly_key_conv = {
+    [Enum.KeyCode.W] = Vector3.new(0, 0, 1),
+    [Enum.KeyCode.A] = Vector3.new(-1, 0, 0),
+    [Enum.KeyCode.S] = Vector3.new(0, 0, -1),
+    [Enum.KeyCode.D] = Vector3.new(1, 0, 0),
+    [Enum.KeyCode.LeftShift] = Vector3.new(0, -1, 0),
+    [Enum.KeyCode.Space] = Vector3.new(0, 1, 0),
 }
 
 local function new(class, parent, props)
@@ -19,13 +22,17 @@ local function new(class, parent, props)
     return i
 end
 
+local function get_char()
+    return Players.LocalPlayer.Character
+end
+
 local data = {
     {
         title = "click teleport",
         settings = {
             startergear = "boolean",
         },
-        func = function(settings)
+        func = function(self)
             local mouse = Players.LocalPlayer:GetMouse()
 
             local function get_tool()
@@ -36,14 +43,14 @@ local data = {
                 tool.Activated:Connect(function()
                     local pos = mouse.Hit
                     pos = CFrame.new(pos.X, pos.Y + 2.5, pos.Z)
-                    Players.LocalPlayer.Character.PrimaryPart.CFrame = pos
+                    get_char().PrimaryPart.CFrame = pos
                 end)
             end
 
             get_tool()
 
-            if settings.starter_gear then
-                player.CharacterAdded:Connect(get_tool)
+            if self.data.starter_gear then
+                Players.LocalPlayer.CharacterAdded:Connect(get_tool)
             end
         end,
     },
@@ -54,16 +61,16 @@ local data = {
             walkspeed = "number",
             jumpheight = "number",
         },
-        func = function(settings)
-            local humanoid = Players.LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+        func = function(self)
+            local humanoid = get_char():FindFirstChildWhichIsA("Humanoid")
 
-            if settings.walkspeed then
-                humanoid.WalkSpeed = settings.walkspeed
+            if self.data.walkspeed then
+                humanoid.WalkSpeed = self.data.walkspeed
             end
 
-            if settings.jumpheight then
+            if self.data.jumpheight then
                 humanoid.UseJumpPower = false
-                humanoid.JumpHeight = settings.jumpheight
+                humanoid.JumpHeight = self.data.jumpheight
             end
         end,
     },
@@ -74,111 +81,61 @@ local data = {
             playername = "string",
         },
 
-        func = function(settings)
-            Players.LocalPlayer.Character.PrimaryPart.CFrame = Players[settings.playername].Character.PrimaryPart.CFrame
+        func = function(self)
+            get_char().PrimaryPart.CFrame = Players[self.data.playername].Character.PrimaryPart.CFrame
         end,
     },
 
     {
-        title = "bodyvelocity fly",
+        title = "cframe fly",
         settings = {
             speed = "number",
             keybind = "string",
         },
         
-        func = function(settings)
-            if flying then
-                return
-            end
-            flying = true
-            
-            local speed = settings.speed
-            local s, keybind = pcall(function() return Enum.KeyCode[settings.keybind] end)
-            keybind = s and keybind or Enum.KeyCode.E
-
-            local conv = {
-                W = Vector3.new(0, 0, 1),
-                A = Vector3.new(-1, 0, 0),
-                S = Vector3.new(0, 0, -1),
-                D = Vector3.new(1, 0, 0),
-            }
-
-            local held_keys = {}
-            local key_inverse = {
-                W = "S",
-                A = "D",
-                S = "W",
-                D = "A",
-            }
-
-            local function add_key(key)
-                local inv_pos = table.find(held_keys, key_inverse[key])
-                if inv_pos then
-                    table.remove(held_keys, inv_pos)
-                else
-                    table.insert(held_keys, key)
-                end
-            end
-
-            local function remove_key(key)
-                if table.find(held_keys, key) then
-                    table.remove(held_keys, table.find(held_keys, key))
-                end
-            end
-
-            local body_vel = new("BodyVelocity", Players.LocalPlayer.Character.PrimaryPart, {
-                Velocity = Vector3.zero,
-                MaxForce = Vector3.one * 9e9,
-            })
-            local velocity = Vector3.zero
+        init = function(self)
+            self.data.flying = false
+            self.data.keybind = "L"
+            self.data.speed = 10
 
             UserInputService.InputBegan:Connect(function(input, processed)
                 if processed then
                     return
                 end
 
+                local s, keybind = pcall(function() return Enum.KeyCode[self.data.keybind] end)
+                if not s then
+                    return
+                end
+
                 if input.KeyCode == keybind then
-                    flying = not flying
-
-                    if flying then
-                        body_vel = new("BodyVelocity", Players.LocalPlayer.Character.PrimaryPart, {
-                            Velocity = Vector3.zero,
-                            MaxForce = Vector3.one * 9e9,
-                        })
-                    else
-                        body_vel:Destroy()
-                        body_vel = nil
-                    end
-                end
-
-                if body_vel and flying and conv[input.KeyCode.Name] then
-                    add_key(input.KeyCode.Name)
+                    self.data.flying = not self.data.flying
+                    get_char().PrimaryPart.Anchored = self.data.flying
                 end
             end)
 
-            UserInputService.InputEnded:Connect(function(input, processed)
-                if processed then
+            RunService:BindToRenderStep("6100339b-ff94-4e2a-b78e-58548737dae3", Enum.RenderPriority.Camera.Value - 1, function(dt)
+                if not self.data.flying then
                     return
                 end
 
-                remove_key(input.KeyCode.Name)
-            end)
-
-            RunService.RenderStepped:Connect(function()
-                if not flying or not body_vel then
-                    return
-                end
-
-                local local_direction = Vector3.zero
-                for k, v in conv do
-                    if UserInputService:IsKeyDown(Enum.KeyCode[k]) then
-                        local_direction += v
+                local ld = Vector3.zero
+                for k, v in fly_key_conv do
+                    if UserInputService:IsKeyDown(k) then
+                        ld += v
                     end
                 end
 
-                local direction = workspace.CurrentCamera.CFrame:VectorToWorldSpace(local_direction)
+                if ld.Magnitude == 0 then
+                    return
+                end
 
-                body_vel.Velocity = direction * speed
+                local camcf = workspace.CurrentCamera.CFrame
+                local direction = (camcf.RightVector * ld.X + camcf.UpVector * ld.Y + camcf.LookVector * ld.Z).Unit
+                local delta = direction * dt * (self.data.speed or 1)
+
+                local pp = get_char().PrimaryPart
+                pp.CFrame = camcf.Rotation + pp.Position + delta
             end)
         end,
     },
@@ -260,7 +217,7 @@ local function init()
     end)
 
     UserInputService.InputBegan:Connect(function(input)
-        if input.KeyCode == keybinds.toggle_ui then
+        if input.KeyCode == toggle_ui_keybind then
             background.Visible = not background.Visible
         end
     end)
@@ -273,8 +230,6 @@ local function init()
     end)
 
     local function new_button(title, execute_text, info)
-        local settings = {}
-
         local button = new("TextButton", main, {
             Size = UDim2.new(1, -10, 0, 25),
             Position = UDim2.fromOffset(5, 5 + buttons * 30),
@@ -294,26 +249,40 @@ local function init()
             BackgroundTransparency = 1,
         })
 
-        local execute = new("TextButton", page, {
-            Size = UDim2.new(1, -10, 0, 25),
-            Position = UDim2.fromOffset(5, 5),
-            BackgroundColor3 = Color3.fromRGB(50, 50, 50),
-            Text = execute_text or "execute",
-            RichText = true,
-            Font = Enum.Font.SourceSansSemibold,
-            TextSize = 18,
-            TextColor3 = Color3.new(1, 1, 1),
-        })
-
-        new("UICorner", execute, { CornerRadius = UDim.new(0, 5) })
-
-        execute.Activated:Connect(function()
-            info.func(settings)
-        end)
-
         local page_buttons = 1
+
+        if info.func ~= nil then
+            local execute = new("TextButton", page, {
+                Size = UDim2.new(1, -10, 0, 25),
+                Position = UDim2.fromOffset(5, 5),
+                BackgroundColor3 = Color3.fromRGB(50, 50, 50),
+                Text = execute_text or "execute",
+                RichText = true,
+                Font = Enum.Font.SourceSansSemibold,
+                TextSize = 18,
+                TextColor3 = Color3.new(1, 1, 1),
+            })
+
+            new("UICorner", execute, { CornerRadius = UDim.new(0, 5) })
+
+            execute.Activated:Connect(function()
+                info:func()
+            end)
+        else
+            page_buttons -= 1
+        end
+
+        info.data = {}
+        if info.init ~= nil then
+            info:init()
+        end
+
         for setting, setting_type in info.settings do
             if setting_type == "boolean" then
+                if info.data[setting] == nil then
+                    info.data[setting] = false
+                end
+
                 local setting_tab = new("TextButton", page, {
                     Size = UDim2.new(1, -10, 0, 25),
                     Position = UDim2.fromOffset(5, 5 + page_buttons * 30),
@@ -336,15 +305,19 @@ local function init()
                 new("UICorner", enabled, { CornerRadius = UDim.new(0, 10) })
 
                 setting_tab.Activated:Connect(function()
-                    settings[setting] = not settings[setting]
+                    info.data[setting] = not info.data[setting]
 
-                    if settings[setting] then
+                    if info.data[setting] then
                         enabled.BackgroundColor3 = Color3.new(0, 1, 0)
                     else
                         enabled.BackgroundColor3 = Color3.new(1, 0, 0)
                     end
                 end)
             elseif setting_type == "string" or setting_type == "number" then
+                if info.data[setting] == nil then
+                    info.data[setting] = setting_type == "string" and "" or 0
+                end
+
                 local setting_tab = new("TextBox", page, {
                     Size = UDim2.new(1, -10, 0, 25),
                     Position = UDim2.fromOffset(5, 5 + page_buttons * 30),
@@ -367,7 +340,7 @@ local function init()
                     else
                         s = setting_tab.Text
                     end
-                    settings[setting] = s
+                    info.data[setting] = s
                 end)
             end
 
@@ -390,17 +363,17 @@ local function init()
             hub_title = "string",
             hide_keybind = "string",
         },
-        func = function(settings)
+        func = function(self)
             local s, kb = pcall(function()
-                return Enum.KeyCode[settings.hide_keybind]
+                return Enum.KeyCode[self.data.hide_keybind]
             end)
 
             if s then
-                keybinds.toggle_ui = kb
+                toggle_ui_keybind = kb
             end
 
-            if settings.hub_title ~= "" then
-                topbar.Text = settings.hub_title
+            if self.data.hub_title ~= "" then
+                topbar.Text = self.data.hub_title
             end
         end,
     })
@@ -413,3 +386,4 @@ local function init()
 end
 
 init()
+return nil

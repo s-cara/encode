@@ -1,0 +1,14 @@
+{
+  "name": "encode_test",
+  "tree": {
+    "$className": "DataModel",
+
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "LocalScript": {
+          "$path": "main.lua"
+        }
+      }
+    }
+  }
+}
