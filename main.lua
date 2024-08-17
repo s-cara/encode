@@ -1,3 +1,4 @@
+local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -24,6 +25,10 @@ end
 
 local function get_char()
     return Players.LocalPlayer.Character
+end
+
+local function v3_distance(u, v)
+    return (u - v).Magnitude
 end
 
 local data = {
@@ -92,30 +97,18 @@ local data = {
             speed = "number",
             keybind = "string",
         },
+
+        toggle = function(self)
+            get_char().PrimaryPart.Anchored = self.data.enabled
+        end,
         
         init = function(self)
-            self.data.flying = false
+            self.data.enabled = false
             self.data.keybind = "L"
             self.data.speed = 50
 
-            UserInputService.InputBegan:Connect(function(input, processed)
-                if processed then
-                    return
-                end
-
-                local s, keybind = pcall(function() return Enum.KeyCode[self.data.keybind] end)
-                if not s then
-                    return
-                end
-
-                if input.KeyCode == keybind then
-                    self.data.flying = not self.data.flying
-                    get_char().PrimaryPart.Anchored = self.data.flying
-                end
-            end)
-
             RunService:BindToRenderStep("6100339b-ff94-4e2a-b78e-58548737dae3", Enum.RenderPriority.Camera.Value - 1, function(dt)
-                if not self.data.flying then
+                if not self.data.enabled then
                     return
                 end
 
@@ -134,6 +127,122 @@ local data = {
                     local direction = (camcf.RightVector * ld.X + camcf.UpVector * ld.Y + camcf.LookVector * ld.Z).Unit
                     pp.CFrame += direction * dt * (self.data.speed or 1)
                 end
+            end)
+        end,
+    },
+
+    {
+        title = "freecam",
+        settings = {
+            speed = "number",
+            keybind = "string",
+        },
+
+        toggle = function(self)
+            self.data.cframe = workspace.CurrentCamera.CFrame
+            get_char().PrimaryPart.Anchored = self.data.enabled
+        end,
+
+        init = function(self)
+            self.data.enabled = false
+            self.data.keybind = "P"
+            self.data.speed = 50
+            self.data.cframe = CFrame.new()
+
+            RunService:BindToRenderStep("ab61fbe5-f92b-e9ff-b6ca-c76abb23d7af", Enum.RenderPriority.Last.Value, function(dt)
+                if not self.data.enabled then
+                    return
+                end
+
+                local ld = Vector3.zero
+                for k, v in fly_key_conv do
+                    if UserInputService:IsKeyDown(k) then
+                        ld += v
+                    end
+                end
+
+                local camcf = self.data.cframe
+                if ld.Magnitude > 0 then
+                    local direction = (camcf.RightVector * ld.X + camcf.UpVector * ld.Y + camcf.LookVector * ld.Z).Unit
+                    self.data.cframe += direction * dt * (self.data.speed or 1)
+                end
+
+                local mouse_delta = UserInputService:GetMouseDelta() * 0.01
+                local rx, ry, _ = self.data.cframe:ToOrientation()
+
+                rx -= mouse_delta.Y
+                ry -= mouse_delta.X
+
+                self.data.cframe = CFrame.fromOrientation(rx, ry, 0) + self.data.cframe.Position
+
+                workspace.CurrentCamera.CFrame = self.data.cframe
+            end)
+        end,
+    },
+
+    {
+        title = "fullbright",
+        settings = {
+        },
+
+        exec = function(self)
+            RunService:BindToRenderStep("f11b77da-e45b-4ca1-aeb0-33a8bdabc5c4", Enum.RenderPriority.Last.Value, function()
+                Lighting.Brightness = 1
+                Lighting.Ambient = Color3.new(1, 1, 1)
+                Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+                Lighting.GlobalShadows = false
+            end)
+        end,
+    },
+
+    {
+        title = "aimlock",
+        settings = {
+            ignore_team = "boolean",
+            keybind = "string",
+            focus_player = "string",
+        },
+
+        init = function(self)
+            self.data.ignore_team = false
+            self.data.keybind = "RightBracket"
+            
+            RunService:BindToRenderStep("c71d9b2f-f889-43e8-a8cd-a8a040c39d69", Enum.RenderPriority.Last.Value, function()
+                if not self.data.enabled then
+                    return
+                end
+
+                local target
+                if self.data.focus_player ~= nil then
+                    target = Players:FindFirstChild(self.data.focus_player)
+                    if target ~= nil then
+                        target = target.Character
+                    end
+                end
+
+                if target == nil then
+                    local min_distance = math.huge
+                    for _, player in Players:GetPlayers() do
+                        if self.data.ignore_team and player.Team == Players.LocalPlayer.Team then
+                            continue
+                        elseif player == Players.LocalPlayer then
+                            continue
+                        end
+
+                        local d = v3_distance(player.Character.PrimaryPart.Position, get_char().PrimaryPart.Position)
+                        if d < min_distance then
+                            min_distance = d
+                            target = player.Character
+                        end
+                    end
+                end
+
+                if target == nil then
+                    return
+                end
+
+                local cam = workspace.CurrentCamera
+                cam.CFrame = CFrame.new(cam.CFrame.Position, target.PrimaryPart.Position)
             end)
         end,
     },
@@ -227,12 +336,13 @@ local function init()
         end
     end)
 
-    local function new_button(title, execute_text, info)
+    local exploits_with_keybinds = {}
+    local function new_button(info)
         local button = new("TextButton", main, {
             Size = UDim2.new(1, -10, 0, 25),
             Position = UDim2.fromOffset(5, 5 + buttons * 30),
             BackgroundColor3 = Color3.fromRGB(50, 50, 50),
-            Text = title,
+            Text = info.title,
             Font = Enum.Font.SourceSansSemibold,
             TextSize = 18,
             TextColor3 = Color3.new(1, 1, 1),
@@ -254,7 +364,7 @@ local function init()
                 Size = UDim2.new(1, -10, 0, 25),
                 Position = UDim2.fromOffset(5, 5),
                 BackgroundColor3 = Color3.fromRGB(50, 50, 50),
-                Text = execute_text or "execute",
+                Text = info.execute_text or "execute",
                 RichText = true,
                 Font = Enum.Font.SourceSansSemibold,
                 TextSize = 18,
@@ -341,6 +451,10 @@ local function init()
                     end
                     info.data[setting] = s
                 end)
+
+                if setting == "keybind" then
+                    table.insert(exploits_with_keybinds, info)
+                end
             end
 
             page_buttons += 1
@@ -357,7 +471,9 @@ local function init()
         return button
     end
 
-    new_button("settings", "apply", {
+    new_button {
+        title = "settings",
+        execute_text  = "apply",
         settings = {
             hub_title = "string",
             hide_keybind = "string",
@@ -375,11 +491,31 @@ local function init()
                 topbar.Text = self.data.hub_title
             end
         end,
-    })
+    }
 
     for _, exploit in data do
-        new_button(exploit.title, nil, exploit)
+        new_button(exploit)
     end
+
+    UserInputService.InputBegan:Connect(function(input, processed)
+        if processed then
+            return
+        end
+
+        for _, info in exploits_with_keybinds do
+            local s, keybind = pcall(function() return Enum.KeyCode[info.data.keybind] end)
+            if not s then
+                return
+            end
+
+            if input.KeyCode == keybind then
+                info.data.enabled = not info.data.enabled
+                if info.toggle ~= nil then
+                    info:toggle()
+                end
+            end
+        end
+    end)
 
     top.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 end

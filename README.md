@@ -1,13 +1,7 @@
 todo:
 
-waypoints; make a waypoint then be able to tp to it
+test fullbright in a game like brm5
+
+waypoints (needs ui rewrite)
 
 esp
-
-freecam
-
-fullbright
-
-basic aimbot (lock to closest player)
-
-cframe fly
